@@ -1,0 +1,39 @@
+name: Клипы в Telegram
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # каждые 15 минут (GitHub иногда запускает с задержкой)
+  workflow_dispatch:          # кнопка «Run workflow» для ручного запуска
+
+permissions:
+  contents: write             # чтобы сохранять список уже отправленных клипов
+
+concurrency:
+  group: clips
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Найти и отправить клипы
+        run: python3 bot.py
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TARGET_CHAT: ${{ secrets.TARGET_CHAT }}
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          MIN_VIEWS: ${{ vars.MIN_VIEWS }}
+
+      - name: Сохранить состояние
+        if: always()
+        run: |
+          git config user.name "clip-bot"
+          git config user.email "clip-bot@users.noreply.github.com"
+          git add state/sent.json 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "Обновить список отправленных клипов"
+          git push
